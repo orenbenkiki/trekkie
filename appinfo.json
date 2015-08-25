@@ -24,6 +24,12 @@
                 "type": "png"
             },
             {
+                "characterRegex": "[W0-9]",
+                "file": "fonts/LCARS_BOLD.ttf",
+                "name": "FONT_LCARS_BOLD_20",
+                "type": "font"
+            },
+            {
                 "file": "fonts/LCARS_BOLD.ttf",
                 "name": "FONT_LCARS_BOLD_17",
                 "type": "font"

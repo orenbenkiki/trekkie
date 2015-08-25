@@ -14,6 +14,7 @@ static Layer *battery_status_layer;
 static GBitmap *bluetooth_image;
 static BitmapLayer *bluetooth_status_layer;
 static GFont *LCARS17;
+static GFont *LCARS20;
 static GFont *LCARS36;
 static GFont *LCARS60;
 
@@ -49,20 +50,26 @@ void battery_status_layer_update(Layer* layer, GContext* ctx) {
 }
 
 void date_update(struct tm* tick_time, TimeUnits units_changed) {
-  static char nice_date_text[] = "Xxx. Xxx. 00";
+  static char nice_date_text[] = "Xxx.Xxx";
   static char stardate_text[] = "0000.00.00";
-  static char work_week_text[] = "WW.00";
+  static char work_week_text[] = "W.00";
 
   // Date Layers
-  strftime(nice_date_text, sizeof(nice_date_text), "%a.%n%b.%n%d", tick_time);
+  strftime(nice_date_text, sizeof(nice_date_text), "%a%n%b", tick_time);
+  for (char *c = nice_date_text; *c; ++c) {
+    if ('a' <= *c && *c <= 'z') {
+      *c -= 'a';
+      *c += 'A';
+    }
+  }
   strftime(stardate_text, sizeof(stardate_text), "%Y.%m.%d", tick_time); // Ok, not a stardate.
-  strftime(work_week_text, sizeof(work_week_text), "WW%n%U", tick_time);
+  strftime(work_week_text, sizeof(work_week_text), "W%n%U", tick_time);
   // No way to tell strftime to use 1-based workweek...
-  if (work_week_text[4] == '9') {
-    work_week_text[4] = '0';
-    ++work_week_text[3];
+  if (work_week_text[3] == '9') {
+    work_week_text[3] = '0';
+    ++work_week_text[2];
   } else {
-    ++work_week_text[4];
+    ++work_week_text[3];
   }
   text_layer_set_text(text_nice_date_layer, nice_date_text);
   text_layer_set_text(text_stardate_layer, stardate_text);
@@ -92,9 +99,10 @@ static void init(void) {
   window_stack_push(window, true /* Animated */);
 
   // Fonts
-  LCARS17=fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_LCARS_BOLD_17));
-  LCARS36=fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_LCARS_36));
-  LCARS60=fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_LCARS_60));
+  LCARS17 = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_LCARS_BOLD_17));
+  LCARS20 = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_LCARS_BOLD_20));
+  LCARS36 = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_LCARS_36));
+  LCARS60 = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_LCARS_60));
 
   // Background Layer
   background_image_layer = bitmap_layer_create(layer_get_frame(window_get_root_layer(window)));
@@ -103,7 +111,7 @@ static void init(void) {
   layer_add_child(window_get_root_layer(window), bitmap_layer_get_layer(background_image_layer));
 
   // Nice Date Layer
-  text_nice_date_layer = text_layer_create(GRect(6, 26, 144 - 6, 168 - 26));
+  text_nice_date_layer = text_layer_create(GRect(8, 35, 144 - 8, 168 - 35));
   text_layer_set_background_color(text_nice_date_layer, GColorClear);
   text_layer_set_font(text_nice_date_layer, LCARS17);
   layer_add_child(window_get_root_layer(window), text_layer_get_layer(text_nice_date_layer));
@@ -116,7 +124,7 @@ static void init(void) {
   layer_add_child(window_get_root_layer(window), text_layer_get_layer(text_time_layer));
 
   // AM/PM Layer
-  text_ampm_layer = text_layer_create(GRect(36, 69, 144 - 36, 168 - 69));
+  text_ampm_layer = text_layer_create(GRect(36, 72, 144 - 36, 168 - 72));
   text_layer_set_text_color(text_ampm_layer, GColorYellow);
   text_layer_set_background_color(text_ampm_layer, GColorClear);
   text_layer_set_font(text_ampm_layer, LCARS17);
@@ -130,9 +138,9 @@ static void init(void) {
   layer_add_child(window_get_root_layer(window), text_layer_get_layer(text_stardate_layer));
   
   // Work week layer.
-  work_week_layer = text_layer_create(GRect(8, 93, 27, 115));
+  work_week_layer = text_layer_create(GRect(10, 95, 27, 115));
   text_layer_set_background_color(work_week_layer, GColorClear);
-  text_layer_set_font(work_week_layer, LCARS17);
+  text_layer_set_font(work_week_layer, LCARS20);
   layer_add_child(window_get_root_layer(window), text_layer_get_layer(work_week_layer));
   
   // Battery Percent Layer
@@ -184,8 +192,9 @@ static void deinit(void) {
   gbitmap_destroy(bluetooth_image);
   gbitmap_destroy(background_image);
 
-  //Destroy fonts.
+  // Destroy fonts.
   fonts_unload_custom_font(LCARS17);
+  fonts_unload_custom_font(LCARS20);
   fonts_unload_custom_font(LCARS36);
   fonts_unload_custom_font(LCARS60);
   
