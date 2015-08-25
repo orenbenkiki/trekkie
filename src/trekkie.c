@@ -109,7 +109,7 @@ static void init(void) {
   layer_add_child(window_get_root_layer(window), text_layer_get_layer(text_nice_date_layer));
 
   // Time Layer
-  text_time_layer=text_layer_create(GRect(42, 17, 150 - 42, 173 - 17));
+  text_time_layer = text_layer_create(GRect(42, 17, 144 - 42, 168 - 17));
   text_layer_set_text_color(text_time_layer, GColorYellow);
   text_layer_set_background_color(text_time_layer, GColorClear);
   text_layer_set_font(text_time_layer, LCARS60);
