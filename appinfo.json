@@ -9,6 +9,11 @@
     "resources": {
         "media": [
             {
+                "file": "images/icon.png",
+                "name": "IMAGE_MENU_ICON",
+                "type": "png"
+            },
+            {
                 "file": "images/background.png",
                 "name": "IMAGE_BACKGROUND",
                 "type": "png"
@@ -34,12 +39,6 @@
                 "file": "fonts/LCARS.ttf",
                 "name": "FONT_LCARS_36",
                 "type": "font"
-            },
-            {
-                "file": "images/icon.png",
-                "menuIcon": true,
-                "name": "IMAGE_MENU_ICON",
-                "type": "png"
             }
         ]
     },
