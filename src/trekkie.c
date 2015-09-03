@@ -1,9 +1,10 @@
 #include <pebble.h>
 
 static Window *window;
+static TextLayer *text_compass_two_letter_layer;
+static TextLayer *text_compass_one_letter_layer;
 static TextLayer *text_nice_date_layer;
 static TextLayer *text_time_layer;
-static TextLayer *text_ampm_layer;
 static TextLayer *text_stardate_layer;
 static GBitmap *background_image;
 static BitmapLayer *background_image_layer;
@@ -17,6 +18,39 @@ static GFont *LUCIDA17;
 static GFont *LCARS20;
 static GFont *LCARS36;
 static GFont *LCARS60;
+
+void compass_heading_handler(CompassHeadingData heading_data) {
+  static char *direction_text[] = { "N", "NE", "E", "SE", "S", "SW", "W", "NW", "N" };
+  static char *last_heading_text = NULL;
+  char *current_heading_text = NULL;
+  bool is_two_letter = false;
+  switch (heading_data.compass_status) {
+    case CompassStatusDataInvalid:
+      current_heading_text = "!";
+      break;
+    case CompassStatusCalibrating:
+      current_heading_text = "?";
+      break;
+    case CompassStatusCalibrated:
+      {
+        int angle = 360 - TRIGANGLE_TO_DEG(heading_data.true_heading);
+        int direction = (angle * 8 + 180) / 360;
+        is_two_letter = direction % 2;
+        current_heading_text = direction_text[direction];
+      }
+      break;
+  }
+  if (current_heading_text != last_heading_text) {
+    if (is_two_letter) {
+      text_layer_set_text(text_compass_one_letter_layer, "");
+      text_layer_set_text(text_compass_two_letter_layer, current_heading_text);
+    } else {
+      text_layer_set_text(text_compass_one_letter_layer, current_heading_text);
+      text_layer_set_text(text_compass_two_letter_layer, "");
+    }
+    last_heading_text = current_heading_text;
+  }
+}
 
 void update_battery_display(BatteryChargeState charge_state) {
   battery_charge_state = charge_state; // Set for battery percentage bar.
@@ -65,6 +99,15 @@ void date_update(struct tm* tick_time, TimeUnits units_changed) {
   } else {
     ++work_week_text[1];
   }
+  // Abuse the 12/24 setting to force an additional 1w offset.
+  if (clock_is_24h_style()) {
+    if (work_week_text[1] == '9') {
+      work_week_text[1] = '0';
+      ++work_week_text[0];
+    } else {
+      ++work_week_text[1];
+    }
+  }
   text_layer_set_text(text_nice_date_layer, nice_date_text);
   text_layer_set_text(text_stardate_layer, stardate_text);
   text_layer_set_text(work_week_layer, work_week_text);
@@ -75,14 +118,8 @@ void time_update(struct tm* tick_time, TimeUnits units_changed) {
     date_update(tick_time, units_changed); 
   }
   static char time_text[6];
-  if (clock_is_24h_style()) {
-    static const char *time_format = "%H:%M";
-    strftime(time_text, sizeof(time_text), time_format, tick_time);
-  } else {
-    static const char *time_format = "%I:%M";
-    strftime(time_text, sizeof(time_text), time_format, tick_time);
-    text_layer_set_text(text_ampm_layer, tick_time->tm_hour < 12 ? "am" : "pm");
-  }
+  static const char *time_format = "%H:%M";
+  strftime(time_text, sizeof(time_text), time_format, tick_time);
 
   // Time layer
   text_layer_set_text(text_time_layer, time_text);
@@ -105,6 +142,17 @@ static void init(void) {
   bitmap_layer_set_bitmap(background_image_layer, background_image);
   layer_add_child(window_get_root_layer(window), bitmap_layer_get_layer(background_image_layer));
 
+  // Compass heading layer
+  text_compass_two_letter_layer = text_layer_create(GRect(7, 99, 27, 115));
+  text_layer_set_background_color(text_compass_two_letter_layer, GColorClear);
+  text_layer_set_font(text_compass_two_letter_layer, LUCIDA17);
+  layer_add_child(window_get_root_layer(window), text_layer_get_layer(text_compass_two_letter_layer));
+  
+  text_compass_one_letter_layer = text_layer_create(GRect(12, 99, 27, 115));
+  text_layer_set_background_color(text_compass_one_letter_layer, GColorClear);
+  text_layer_set_font(text_compass_one_letter_layer, LUCIDA17);
+  layer_add_child(window_get_root_layer(window), text_layer_get_layer(text_compass_one_letter_layer));
+  
   // Nice Date Layer
   text_nice_date_layer = text_layer_create(GRect(6, 36, 144 - 6, 168 - 36));
   text_layer_set_background_color(text_nice_date_layer, GColorClear);
@@ -112,21 +160,14 @@ static void init(void) {
   layer_add_child(window_get_root_layer(window), text_layer_get_layer(text_nice_date_layer));
 
   // Time Layer
-  text_time_layer = text_layer_create(GRect(45, 16, 144 - 45, 168 - 16));
+  text_time_layer = text_layer_create(GRect(45, 9, 144 - 45, 168 - 9));
   text_layer_set_text_color(text_time_layer, GColorPastelYellow);
   text_layer_set_background_color(text_time_layer, GColorClear);
   text_layer_set_font(text_time_layer, LCARS60);
   layer_add_child(window_get_root_layer(window), text_layer_get_layer(text_time_layer));
 
-  // AM/PM Layer
-  text_ampm_layer = text_layer_create(GRect(36, 72, 144 - 36, 168 - 72));
-  text_layer_set_text_color(text_ampm_layer, GColorPastelYellow);
-  text_layer_set_background_color(text_ampm_layer, GColorClear);
-  text_layer_set_font(text_ampm_layer, LCARS17);
-  layer_add_child(window_get_root_layer(window), text_layer_get_layer(text_ampm_layer));
-
   // Stardate Layer
-  text_stardate_layer = text_layer_create(GRect(34, 96, 144 - 36, 168 - 96));
+  text_stardate_layer = text_layer_create(GRect(34, 97, 144 - 36, 168 - 97));
   text_layer_set_text_color(text_stardate_layer, GColorPastelYellow);
   text_layer_set_background_color(text_stardate_layer, GColorClear);
   text_layer_set_font(text_stardate_layer, LCARS36);
@@ -157,23 +198,32 @@ static void init(void) {
   update_battery_display(battery_state_service_peek());
   update_bluetooth_status(bluetooth_connection_service_peek());
 
-  // Subscribe to bluetooth, battery, and time updates.
+  // Subscribe to bluetooth, battery, time and compass updates.
   bluetooth_connection_service_subscribe(update_bluetooth_status);
   battery_state_service_subscribe(update_battery_display);
   tick_timer_service_subscribe(MINUTE_UNIT, &time_update);
+  compass_service_set_heading_filter(10 * (TRIG_MAX_ANGLE / 360));
+  compass_service_subscribe(&compass_heading_handler);
 }
 
 static void deinit(void) {
   // Deinit, in reverse order from creation.
+  /*
+  compass_service_unsubscribe();
+  */
+  bluetooth_connection_service_unsubscribe();
+  battery_state_service_unsubscribe();
+  tick_timer_service_unsubscribe();
 
   // Destroy layers.
   bitmap_layer_destroy(bluetooth_status_layer);
   layer_destroy(battery_status_layer);
   text_layer_destroy(work_week_layer);
   text_layer_destroy(text_stardate_layer);
-  text_layer_destroy(text_ampm_layer);
   text_layer_destroy(text_time_layer);
   text_layer_destroy(text_nice_date_layer);
+  text_layer_destroy(text_compass_one_letter_layer);
+  text_layer_destroy(text_compass_two_letter_layer);
   bitmap_layer_destroy(background_image_layer);
 
   // Destroy bitmaps.

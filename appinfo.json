@@ -19,6 +19,7 @@
                 "type": "png"
             },
             {
+                "characterRegex": "[A-Z0-9 !?]",
                 "file": "fonts/LucidaTypewriterBold.ttf",
                 "name": "FONT_LUCIDA_17",
                 "type": "font"
