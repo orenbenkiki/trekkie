@@ -9,11 +9,6 @@
     "resources": {
         "media": [
             {
-                "file": "images/icon.png",
-                "name": "IMAGE_MENU_ICON",
-                "type": "png"
-            },
-            {
                 "file": "images/background.png",
                 "name": "IMAGE_BACKGROUND",
                 "type": "png"
@@ -21,6 +16,16 @@
             {
                 "file": "images/bluetooth.png",
                 "name": "BLUETOOTH_IMAGE",
+                "type": "png"
+            },
+            {
+                "file": "fonts/LucidaTypewriterBold.ttf",
+                "name": "FONT_LUCIDA_17",
+                "type": "font"
+            },
+            {
+                "file": "images/icon.png",
+                "name": "IMAGE_MENU_ICON",
                 "type": "png"
             },
             {

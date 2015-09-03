@@ -8,23 +8,17 @@ static TextLayer *text_stardate_layer;
 static GBitmap *background_image;
 static BitmapLayer *background_image_layer;
 static TextLayer *work_week_layer;
-static TextLayer *battery_percent_layer;
 static BatteryChargeState battery_charge_state;
 static Layer *battery_status_layer;
 static GBitmap *bluetooth_image;
 static BitmapLayer *bluetooth_status_layer;
 static GFont *LCARS17;
+static GFont *LUCIDA17;
 static GFont *LCARS20;
 static GFont *LCARS36;
 static GFont *LCARS60;
 
 void update_battery_display(BatteryChargeState charge_state) {
-  static char battery_percent_text[] = "000";
-  snprintf(battery_percent_text, sizeof(battery_percent_text), "%02u", charge_state.charge_percent);
-  if (charge_state.charge_percent < 100) {
-    battery_percent_text[2] = '%';
-  }
-  text_layer_set_text(battery_percent_layer, battery_percent_text);
   battery_charge_state = charge_state; // Set for battery percentage bar.
   layer_mark_dirty(battery_status_layer);
 }
@@ -36,8 +30,8 @@ void update_bluetooth_status(bool connected) {
 void battery_status_layer_update(Layer* layer, GContext* ctx) {
   if (battery_charge_state.is_charging) {
     graphics_context_set_fill_color(ctx, GColorYellow);
-    graphics_fill_rect(ctx, GRect(1, 1, 35, 9), 0, 0);
-    graphics_fill_rect(ctx, GRect(36, 3, 2, 5), 0, 0);
+    graphics_fill_rect(ctx, GRect(0, 0, 104, 11), 0, 0);
+    graphics_fill_rect(ctx, GRect(104, 2, 2, 7), 0, 0);
   }
   if (battery_charge_state.charge_percent > 40) {
     graphics_context_set_fill_color(ctx, GColorGreen);
@@ -46,13 +40,13 @@ void battery_status_layer_update(Layer* layer, GContext* ctx) {
   } else {
     graphics_context_set_fill_color(ctx, GColorRed);
   }
-  graphics_fill_rect(ctx, GRect(2, 2, battery_charge_state.charge_percent / 3, 7), 0, 0);
+  graphics_fill_rect(ctx, GRect(2, 2, battery_charge_state.charge_percent, 7), 0, 0);
 }
 
 void date_update(struct tm* tick_time, TimeUnits units_changed) {
   static char nice_date_text[] = "Xxx.Xxx";
   static char stardate_text[] = "0000.00.00";
-  static char work_week_text[] = "W.00";
+  static char work_week_text[] = "00";
 
   // Date Layers
   strftime(nice_date_text, sizeof(nice_date_text), "%a%n%b", tick_time);
@@ -63,13 +57,13 @@ void date_update(struct tm* tick_time, TimeUnits units_changed) {
     }
   }
   strftime(stardate_text, sizeof(stardate_text), "%Y.%m.%d", tick_time); // Ok, not a stardate.
-  strftime(work_week_text, sizeof(work_week_text), "W%n%U", tick_time);
+  strftime(work_week_text, sizeof(work_week_text), "%U", tick_time);
   // No way to tell strftime to use 1-based workweek...
-  if (work_week_text[3] == '9') {
-    work_week_text[3] = '0';
-    ++work_week_text[2];
+  if (work_week_text[1] == '9') {
+    work_week_text[1] = '0';
+    ++work_week_text[0];
   } else {
-    ++work_week_text[3];
+    ++work_week_text[1];
   }
   text_layer_set_text(text_nice_date_layer, nice_date_text);
   text_layer_set_text(text_stardate_layer, stardate_text);
@@ -99,6 +93,7 @@ static void init(void) {
   window_stack_push(window, true /* Animated */);
 
   // Fonts
+  LUCIDA17 = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_LUCIDA_17));
   LCARS17 = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_LCARS_BOLD_17));
   LCARS20 = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_LCARS_BOLD_20));
   LCARS36 = fonts_load_custom_font(resource_get_handle(RESOURCE_ID_FONT_LCARS_36));
@@ -111,51 +106,45 @@ static void init(void) {
   layer_add_child(window_get_root_layer(window), bitmap_layer_get_layer(background_image_layer));
 
   // Nice Date Layer
-  text_nice_date_layer = text_layer_create(GRect(8, 35, 144 - 8, 168 - 35));
+  text_nice_date_layer = text_layer_create(GRect(6, 36, 144 - 6, 168 - 36));
   text_layer_set_background_color(text_nice_date_layer, GColorClear);
-  text_layer_set_font(text_nice_date_layer, LCARS17);
+  text_layer_set_font(text_nice_date_layer, LUCIDA17);
   layer_add_child(window_get_root_layer(window), text_layer_get_layer(text_nice_date_layer));
 
   // Time Layer
-  text_time_layer = text_layer_create(GRect(42, 17, 144 - 42, 168 - 17));
-  text_layer_set_text_color(text_time_layer, GColorYellow);
+  text_time_layer = text_layer_create(GRect(45, 16, 144 - 45, 168 - 16));
+  text_layer_set_text_color(text_time_layer, GColorPastelYellow);
   text_layer_set_background_color(text_time_layer, GColorClear);
   text_layer_set_font(text_time_layer, LCARS60);
   layer_add_child(window_get_root_layer(window), text_layer_get_layer(text_time_layer));
 
   // AM/PM Layer
   text_ampm_layer = text_layer_create(GRect(36, 72, 144 - 36, 168 - 72));
-  text_layer_set_text_color(text_ampm_layer, GColorYellow);
+  text_layer_set_text_color(text_ampm_layer, GColorPastelYellow);
   text_layer_set_background_color(text_ampm_layer, GColorClear);
   text_layer_set_font(text_ampm_layer, LCARS17);
   layer_add_child(window_get_root_layer(window), text_layer_get_layer(text_ampm_layer));
 
   // Stardate Layer
-  text_stardate_layer = text_layer_create(GRect(36, 95, 144 - 36, 168 - 95));
-  text_layer_set_text_color(text_stardate_layer, GColorYellow);
+  text_stardate_layer = text_layer_create(GRect(34, 96, 144 - 36, 168 - 96));
+  text_layer_set_text_color(text_stardate_layer, GColorPastelYellow);
   text_layer_set_background_color(text_stardate_layer, GColorClear);
   text_layer_set_font(text_stardate_layer, LCARS36);
   layer_add_child(window_get_root_layer(window), text_layer_get_layer(text_stardate_layer));
   
   // Work week layer.
-  work_week_layer = text_layer_create(GRect(10, 95, 27, 115));
+  work_week_layer = text_layer_create(GRect(7, 116, 27, 115));
   text_layer_set_background_color(work_week_layer, GColorClear);
-  text_layer_set_font(work_week_layer, LCARS20);
+  text_layer_set_font(work_week_layer, LUCIDA17);
   layer_add_child(window_get_root_layer(window), text_layer_get_layer(work_week_layer));
   
-  // Battery Percent Layer
-  battery_percent_layer = text_layer_create(GRect(65, 4, 27, 115));
-  text_layer_set_background_color(battery_percent_layer, GColorClear);
-  text_layer_set_font(battery_percent_layer, LCARS17);
-  layer_add_child(window_get_root_layer(window), text_layer_get_layer(battery_percent_layer));
-  
   // Battery Status Layer
-  battery_status_layer = layer_create(GRect(96, 9, 39, 11));
+  battery_status_layer = layer_create(GRect(30, 152, 106, 11));
   layer_add_child(window_get_root_layer(window), battery_status_layer);
   layer_set_update_proc(battery_status_layer, battery_status_layer_update);
 
   // Bluetooth Status Layer
-  bluetooth_status_layer = bitmap_layer_create(GRect(44, 8, 14, 13));
+  bluetooth_status_layer = bitmap_layer_create(GRect(12, 10, 20, 26));
   bluetooth_image = gbitmap_create_with_resource(RESOURCE_ID_BLUETOOTH_IMAGE);
   bitmap_layer_set_bitmap(bluetooth_status_layer, bluetooth_image);
   layer_add_child(window_get_root_layer(window), bitmap_layer_get_layer(bluetooth_status_layer));
@@ -180,7 +169,6 @@ static void deinit(void) {
   // Destroy layers.
   bitmap_layer_destroy(bluetooth_status_layer);
   layer_destroy(battery_status_layer);
-  text_layer_destroy(battery_percent_layer);
   text_layer_destroy(work_week_layer);
   text_layer_destroy(text_stardate_layer);
   text_layer_destroy(text_ampm_layer);
