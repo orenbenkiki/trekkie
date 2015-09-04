@@ -64,8 +64,8 @@ void update_bluetooth_status(bool connected) {
 void battery_status_layer_update(Layer* layer, GContext* ctx) {
   if (battery_charge_state.is_charging) {
     graphics_context_set_fill_color(ctx, GColorYellow);
-    graphics_fill_rect(ctx, GRect(0, 0, 104, 11), 0, 0);
-    graphics_fill_rect(ctx, GRect(104, 2, 2, 7), 0, 0);
+    graphics_fill_rect(ctx, GRect(0, 0, 99, 11), 0, 0);
+    graphics_fill_rect(ctx, GRect(99, 2, 2, 7), 0, 0);
   }
   if (battery_charge_state.charge_percent > 40) {
     graphics_context_set_fill_color(ctx, GColorGreen);
@@ -74,7 +74,7 @@ void battery_status_layer_update(Layer* layer, GContext* ctx) {
   } else {
     graphics_context_set_fill_color(ctx, GColorRed);
   }
-  graphics_fill_rect(ctx, GRect(2, 2, battery_charge_state.charge_percent, 7), 0, 0);
+  graphics_fill_rect(ctx, GRect(2, 2, (battery_charge_state.charge_percent * 95) / 100, 7), 0, 0);
 }
 
 void date_update(struct tm* tick_time, TimeUnits units_changed) {
@@ -154,21 +154,21 @@ static void init(void) {
   layer_add_child(window_get_root_layer(window), text_layer_get_layer(text_compass_one_letter_layer));
   
   // Nice Date Layer
-  text_nice_date_layer = text_layer_create(GRect(6, 36, 144 - 6, 168 - 36));
+  text_nice_date_layer = text_layer_create(GRect(6, 37, 144 - 6, 168 - 37));
   text_layer_set_background_color(text_nice_date_layer, GColorClear);
   text_layer_set_font(text_nice_date_layer, LUCIDA17);
   layer_add_child(window_get_root_layer(window), text_layer_get_layer(text_nice_date_layer));
 
   // Time Layer
   text_time_layer = text_layer_create(GRect(45, 9, 144 - 45, 168 - 9));
-  text_layer_set_text_color(text_time_layer, GColorPastelYellow);
+  text_layer_set_text_color(text_time_layer, GColorWhite);
   text_layer_set_background_color(text_time_layer, GColorClear);
   text_layer_set_font(text_time_layer, LCARS60);
   layer_add_child(window_get_root_layer(window), text_layer_get_layer(text_time_layer));
 
   // Stardate Layer
   text_stardate_layer = text_layer_create(GRect(34, 97, 144 - 36, 168 - 97));
-  text_layer_set_text_color(text_stardate_layer, GColorPastelYellow);
+  text_layer_set_text_color(text_stardate_layer, GColorWhite);
   text_layer_set_background_color(text_stardate_layer, GColorClear);
   text_layer_set_font(text_stardate_layer, LCARS36);
   layer_add_child(window_get_root_layer(window), text_layer_get_layer(text_stardate_layer));
@@ -180,7 +180,7 @@ static void init(void) {
   layer_add_child(window_get_root_layer(window), text_layer_get_layer(work_week_layer));
   
   // Battery Status Layer
-  battery_status_layer = layer_create(GRect(30, 152, 106, 11));
+  battery_status_layer = layer_create(GRect(35, 152, 101, 11));
   layer_add_child(window_get_root_layer(window), battery_status_layer);
   layer_set_update_proc(battery_status_layer, battery_status_layer_update);
 
