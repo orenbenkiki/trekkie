@@ -14,7 +14,7 @@
                 "type": "png"
             },
             {
-                "characterRegex": "[?0-9+-]",
+                "characterRegex": "[0-9+]",
                 "file": "fonts/moonhouse.ttf",
                 "name": "FONT_MOONHOUSE_14",
                 "type": "font"
@@ -36,26 +36,15 @@
                 "type": "png"
             },
             {
-                "characterRegex": "[W0-9]",
-                "file": "fonts/LCARS_BOLD.ttf",
-                "name": "FONT_LCARS_BOLD_20",
-                "type": "font"
-            },
-            {
-                "file": "fonts/LCARS_BOLD.ttf",
-                "name": "FONT_LCARS_BOLD_17",
-                "type": "font"
-            },
-            {
-                "characterRegex": "[:0-9.]",
-                "file": "fonts/LCARS.ttf",
-                "name": "FONT_LCARS_60",
-                "type": "font"
-            },
-            {
-                "characterRegex": "[:0-9.]",
+                "characterRegex": "[0-9.]",
                 "file": "fonts/LCARS.ttf",
                 "name": "FONT_LCARS_36",
+                "type": "font"
+            },
+            {
+                "characterRegex": "[:0-9]",
+                "file": "fonts/LCARS.ttf",
+                "name": "FONT_LCARS_60",
                 "type": "font"
             }
         ]
