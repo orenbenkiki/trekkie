@@ -1,6 +1,6 @@
 ## Trekkie — Pebble Watchface
 
-![Design](https://raw.github.com/ad1217/trekkie/master/screenshot.png)
+![Screenshot](https://raw.githubusercontent.com/orenbenkiki/trekkie/master/screenshot.png)
 
 An LCARS-inspired Pebble watchface, intended for my personal usage, so you
 won't find it on the pebble store. Feel free to clone and adapt for your needs.
