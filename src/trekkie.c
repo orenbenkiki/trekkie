@@ -89,18 +89,18 @@ static Layer *battery_graphics_layer;
 
 // The top-left location of the battery charge indicator.
 #define BATTERY_CHARGE_LEFT 35
-#define BATTERY_CHARGE_TOP 148
+#define BATTERY_CHARGE_TOP 144
 
 // The width and height of the rectangle representing the battery charge, including the border.
 #define BATTERY_CHARGE_OUTER_WIDTH 99
-#define BATTERY_CHARGE_OUTER_HEIGHT 14
+#define BATTERY_CHARGE_OUTER_HEIGHT 18
   
 // The width of the border around the charge indicator.
 #define BATTERY_CHARGE_BORDER 2
 
 // The width and height of the extra "bump" at the right end.
 #define BATTERY_EXTRA_WIDTH 2
-#define BATTERY_EXTRA_HEIGHT 8
+#define BATTERY_EXTRA_HEIGHT 10
   
 static void update_battery_graphics(Layer* layer, GContext* ctx) {
   if (battery_charge_state.is_charging) {
@@ -167,7 +167,6 @@ typedef enum {
   TIME_FONT, // Used for the time (hours and minutes).
   DATE_FONT, // Used for the date (stardate-ish YYYY.MM.DD).
   TEXT_FONT, // Used for all the texts on the left panels.
-  TIME_LEFT_FONT, // Used for the dis/charge time left prediction.
   FONTS_COUNT
 } WhichFont;
 
@@ -175,8 +174,7 @@ typedef enum {
 static Font fonts[FONTS_COUNT] = {
   { RESOURCE_ID_FONT_LCARS_60 }, // TIME_FONT
   { RESOURCE_ID_FONT_LCARS_36 }, // DATE_FONT
-  { RESOURCE_ID_FONT_LUCIDA_17 }, // TEXT_FONT
-  { RESOURCE_ID_FONT_MOONHOUSE_14 } // TIME_LEFT_FONT
+  { RESOURCE_ID_FONT_LUCIDA_17 } // TEXT_FONT
 };
 
 static void init_fonts() {
@@ -231,14 +229,14 @@ typedef enum {
 // The data of the texts we use.
 static Text texts[TEXTS_COUNT] = {
   { TIME_FONT, GColorWhiteARGB8, { .x = 45, .y = 5 } }, // TIME_TEXT
-  { DATE_FONT, GColorWhiteARGB8, { .x = 34, .y = 94 } }, // DATE_TEXT
+  { DATE_FONT, GColorWhiteARGB8, { .x = 34, .y = 92 } }, // DATE_TEXT
   { TEXT_FONT, GColorBlackARGB8, { .x = 6, .y = 33 } }, // DATE_NAMES_TEXT
   { TEXT_FONT, GColorBlackARGB8, { .x = 12, .y = 95 } }, // COMPASS_ONE_LETTER_TEXT
   { TEXT_FONT, GColorBlackARGB8, { .x = 7, .y = 95 } }, // COMPASS_TWO_LETTER_TEXT
   { TEXT_FONT, GColorBlackARGB8, { .x = 7, .y = 112 } }, // WORK_WEEK_TEXT
-  { TIME_LEFT_FONT, GColorBlackARGB8, { .x = 38, .y = 145 } }, // LONG_TIME_LEFT_TEXT
-  { TIME_LEFT_FONT, GColorWhiteARGB8, { .x = 87, .y = 145 } }, // SHORT_TIME_LEFT_TEXT
-  { TIME_LEFT_FONT, GColorBlackARGB8, { .x = 87, .y = 145 } }, // CHARGE_TIME_LEFT_TEXT
+  { TEXT_FONT, GColorBlackARGB8, { .x = 38, .y = 142 } }, // LONG_TIME_LEFT_TEXT
+  { TEXT_FONT, GColorWhiteARGB8, { .x = 91, .y = 142 } }, // SHORT_TIME_LEFT_TEXT
+  { TEXT_FONT, GColorBlackARGB8, { .x = 91, .y = 142 } }, // CHARGE_TIME_LEFT_TEXT
 };
 
 static void init_texts() {
