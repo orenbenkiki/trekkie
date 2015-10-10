@@ -2,16 +2,39 @@
 
 ![Design](https://raw.github.com/ad1217/trekkie/master/screenshot.png)
 
-An LCARS-inspired Pebble watchface. Download the pre-built watchface from the Pebble App Store!
+An LCARS-inspired Pebble watchface, intended for my personal usage, so you
+won't find it on the pebble store. Feel free to clone and adapt for your needs.
 
-*This watchface may be unstable. I hold no responsibility if this breaks your Pebble!* I use it on my Pebble without issues though. :smile:
-### Changes in the since SDK 1.x
-* added battery level and bluetooth connection icon (recently changed) in the pane on the left
-* changed date format to DD.MM.YY (day.month.year)
+*I hold no responsibility if it breaks your pebble. May contain nuts. YMMV.*
+It works fine for me, though.
 
-### Building from source
+This is a heavily modified version of [Trekkie](https://github.com/remixz/trekkie):
 
-Using the `pebble` script from the sdk or [Hexxeh's bluetooth version](https://github.com/Hexxeh/libpebble), run
-`pebble build`.
+* Only works on pebble time (uses color, etc.).
 
-Install with either `pebble install --phone [your phone's ip]`, `pebble install --pebble_id [your pebble's bluetooth adress]` (if using Hexxeh's libpebble), or put the .pbk on your phone and install it through the Pebble app.
+* Shows a possibly too blatant bluetooth connection status image.
+
+* Texts on the left show (from top to bottom):
+
+  * Name of day.
+
+  * Name of month.
+
+  * Compass heading (N / NE / E / SE / S / SW / W / NW). This takes a bit of
+    time to calibrate after installation or recharging.
+
+  * Week number in year (I work in Intel and they live by "work week" numbers).
+    There are many ways to compute week number in year and Intel
+    (unsurprisingly) uses whatever Outlook does, which seems to be unrelated to
+    any standard. I abuse the 12/24 clock setting to optionally add 1 to the
+    work week to make it show what I want in each year. The clock itself is
+    always at 24 hours (hey, it is consistent with the LCARS theme :-). The
+    right thing to would be to add a proper configuration screen, and a nice
+    icon for the watch faces list, but I don't care much about all that.
+
+* Bottom bar shows battery status with a prediction of time left (D+HH). This
+  takes a bit of time to calibrate after installation. It uses a moving average
+  to learn the discharge rate so it should adapt to your usage pattern. The
+  code "should" also show the time left for a full charge when charging, but
+  somehow this doesn't work (and is impossible to debug on CloudPebble). Nobody
+  looks at their phone while charging anyway.
