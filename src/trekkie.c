@@ -159,7 +159,7 @@ typedef struct {
   int resource_id;
   
   // The actual usable font object, obtained at init.
-  GFont *g_font;
+  GFont g_font;
 } Font;
 
 // The indices of the fonts we use.
@@ -183,7 +183,7 @@ static void init_fonts() {
   }
 }
 
-static GFont *font(WhichFont which_font) {
+static GFont font(WhichFont which_font) {
   return fonts[which_font].g_font;
 }
 
@@ -405,12 +405,21 @@ static void format_predictor(WhichPredictor which_predictor, int current_tick_ti
     }
     if (difference_percent) {
       double difference_hours = difference_percent * predictor->hours_per_percent - hours_since_previous_tick;
-      if (difference_hours >= 1) {
+      if (difference_hours >= 1.0) {
         int difference_days = (int)(difference_hours / 24.0);
-        int rounded_difference_hours = (int)(difference_hours - difference_days * 24 + 0.5);
+        int rounded_difference_hours = (int)(difference_hours - difference_days * 24.0 + 0.5);
         snprintf(text, 5, "%1d+%02d", difference_days, rounded_difference_hours);
         return;
       }
+#ifdef UPDATE
+      else {
+        int rounded_difference_minutes = (int)(difference_hours * 60.0 + 0.5);
+        if (rounded_difference_minutes > 0) {
+          snprintf(text, 5, "0:%02d", rounded_difference_minutes);
+          return;
+        }
+      }
+#endif
     }
   }
   *text = '\0';
