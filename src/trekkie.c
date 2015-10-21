@@ -383,8 +383,18 @@ static void update_predictor(WhichPredictor which_predictor, int current_tick_pe
     time_t time_delta = current_tick_time - predictor->previous_tick_time;
     double hours_delta = time_delta / 3600.0;
     double step_hours_per_percent = hours_delta / percents_delta;
-    if (predictor->hours_per_percent) {
-      predictor->hours_per_percent = 0.9 * predictor->hours_per_percent + 0.1 * step_hours_per_percent;
+    if (predictor->hours_per_percent > 0) {
+      // TRICKY: the bigger the difference is, the faster we move towards to the new value.
+      // This speeds up adapting to a new regime.
+      double max_hours_per_percent = step_hours_per_percent > predictor->hours_per_percent
+                                   ? step_hours_per_percent : predictor->hours_per_percent;
+      double min_hours_per_percent = step_hours_per_percent < predictor->hours_per_percent
+                                   ? step_hours_per_percent : predictor->hours_per_percent;
+      double difference_hours_per_percent = max_hours_per_percent - min_hours_per_percent;
+      double step_weight = difference_hours_per_percent / max_hours_per_percent;
+      double predictor_weight = 1.0 - step_weight;
+      predictor->hours_per_percent = predictor_weight * predictor->hours_per_percent
+                                   + step_weight * step_hours_per_percent;
     } else {
       predictor->hours_per_percent = step_hours_per_percent;
     }
