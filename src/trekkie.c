@@ -383,20 +383,22 @@ static void update_predictor(WhichPredictor which_predictor, int current_tick_pe
     time_t time_delta = current_tick_time - predictor->previous_tick_time;
     double hours_delta = time_delta / 3600.0;
     double step_hours_per_percent = hours_delta / percents_delta;
-    if (predictor->hours_per_percent > 0) {
-      // TRICKY: the bigger the difference is, the faster we move towards to the new value.
-      // This speeds up adapting to a new regime.
-      double max_hours_per_percent = step_hours_per_percent > predictor->hours_per_percent
-                                   ? step_hours_per_percent : predictor->hours_per_percent;
-      double min_hours_per_percent = step_hours_per_percent < predictor->hours_per_percent
-                                   ? step_hours_per_percent : predictor->hours_per_percent;
-      double difference_hours_per_percent = max_hours_per_percent - min_hours_per_percent;
-      double step_weight = difference_hours_per_percent / max_hours_per_percent;
-      double predictor_weight = 1.0 - step_weight;
-      predictor->hours_per_percent = predictor_weight * predictor->hours_per_percent
-                                   + step_weight * step_hours_per_percent;
-    } else {
-      predictor->hours_per_percent = step_hours_per_percent;
+    if (step_hours_per_percent > 0) {
+      if (predictor->hours_per_percent > 0) {
+        // TRICKY: the bigger the difference is, the faster we move towards to the new value.
+        // This speeds up adapting to a new regime.
+        double max_hours_per_percent = step_hours_per_percent > predictor->hours_per_percent
+                                     ? step_hours_per_percent : predictor->hours_per_percent;
+        double min_hours_per_percent = step_hours_per_percent < predictor->hours_per_percent
+                                     ? step_hours_per_percent : predictor->hours_per_percent;
+        double difference_hours_per_percent = max_hours_per_percent - min_hours_per_percent;
+        double step_weight = difference_hours_per_percent / max_hours_per_percent;
+        double predictor_weight = 1.0 - step_weight;
+        predictor->hours_per_percent = predictor_weight * predictor->hours_per_percent
+                                     + step_weight * step_hours_per_percent;
+      } else {
+        predictor->hours_per_percent = step_hours_per_percent;
+      }
     }
   }
   predictor->previous_tick_time = current_tick_time;
@@ -405,34 +407,37 @@ static void update_predictor(WhichPredictor which_predictor, int current_tick_pe
 
 static void format_predictor(WhichPredictor which_predictor, int current_tick_time, char *text) {
   const Predictor *predictor = &predictors[which_predictor];
-  if (predictor->previous_tick_time && predictor->hours_per_percent) {
-    int time_since_previous_tick = current_tick_time - predictor->previous_tick_time;
-    double hours_since_previous_tick = time_since_previous_tick / 3600.0;
-    int target_percent = which_predictor == DISCHARGE_PREDICTOR ? 0 : 100;
-    int difference_percent = target_percent - predictor->previous_tick_percent;
-    if (difference_percent < 0) {
-      difference_percent = -difference_percent;
-    }
-    if (difference_percent) {
-      double difference_hours = difference_percent * predictor->hours_per_percent - hours_since_previous_tick;
-      if (difference_hours >= 1.0) {
-        int difference_days = (int)(difference_hours / 24.0);
-        int rounded_difference_hours = (int)(difference_hours - difference_days * 24.0 + 0.5);
-        snprintf(text, 5, "%1d+%02d", difference_days, rounded_difference_hours);
-        return;
-      }
-#ifdef UPDATE
-      else {
-        int rounded_difference_minutes = (int)(difference_hours * 60.0 + 0.5);
-        if (rounded_difference_minutes > 0) {
-          snprintf(text, 5, "0:%02d", rounded_difference_minutes);
-          return;
-        }
-      }
-#endif
-    }
+  if (!predictor->previous_tick_time) {
+      snprintf(text, 5, " ?? ");
+      return;
   }
-  *text = '\0';
+  if (!predictor->hours_per_percent) {
+      snprintf(text, 5, " !! ");
+      return;
+  }
+  int target_percent = which_predictor == DISCHARGE_PREDICTOR ? 0 : 100;
+  int difference_percent = target_percent - predictor->previous_tick_percent;
+  if (difference_percent < 0) {
+    difference_percent = -difference_percent;
+  }
+  if (!difference_percent) {
+      snprintf(text, 5, " 00 ");
+      return;
+  }
+  int time_since_previous_tick = current_tick_time - predictor->previous_tick_time;
+  double hours_since_previous_tick = time_since_previous_tick / 3600.0;
+  double difference_hours = difference_percent * predictor->hours_per_percent - hours_since_previous_tick;
+  if (difference_hours >= 1.0) {
+    int difference_days = (int)(difference_hours / 24.0);
+    int rounded_difference_hours = (int)(difference_hours - difference_days * 24.0 + 0.5);
+    snprintf(text, 5, "%1d+%02d", difference_days, rounded_difference_hours);
+    return;
+  }
+  int rounded_difference_minutes = (int)(difference_hours * 60.0 + 0.5);
+  if (rounded_difference_minutes > 0) {
+    snprintf(text, 5, "0:%02d", rounded_difference_minutes);
+    return;
+  }
 }
 
 //// Text updates.
