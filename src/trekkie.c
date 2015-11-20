@@ -9,7 +9,11 @@
 // The overall application window.
 static Window *window;
 
+// The time we initialized everything.
+time_t init_time;
+
 static void init_window() {
+  init_time = time(NULL);
   window = window_create();
   window_stack_push(window, true /* Animated */);
 }
@@ -103,8 +107,12 @@ static Layer *battery_graphics_layer;
 #define BATTERY_EXTRA_HEIGHT 10
   
 static void update_battery_graphics(Layer* layer, GContext* ctx) {
-  if (battery_charge_state.is_charging) {
-    graphics_context_set_fill_color(ctx, GColorYellow);
+  if (battery_charge_state.is_charging || battery_charge_state.charge_percent == 0) {
+    if (battery_charge_state.is_charging) {
+      graphics_context_set_fill_color(ctx, GColorYellow);
+    } else {
+      graphics_context_set_fill_color(ctx, GColorRed);
+    }
     graphics_fill_rect(ctx, GRect(0, 0,
                                   BATTERY_CHARGE_OUTER_WIDTH, BATTERY_CHARGE_OUTER_HEIGHT),
                        0, 0);
@@ -223,6 +231,10 @@ typedef enum {
   LONG_TIME_LEFT_TEXT, // Remaining discharge time if battery is >=50, always green background.
   SHORT_TIME_LEFT_TEXT, // Remaining discharge time if battery is <50, always black background.
   CHARGE_TIME_LEFT_TEXT, // Remaining charge time, always light (yellow or green) background.
+#ifdef DEBUG
+  TODO_OLD_TEXT,
+  TODO_NEW_TEXT,
+#endif
   TEXTS_COUNT
 } WhichText;
 
@@ -237,6 +249,10 @@ static Text texts[TEXTS_COUNT] = {
   { TEXT_FONT, GColorBlackARGB8, { .x = 38, .y = 142 } }, // LONG_TIME_LEFT_TEXT
   { TEXT_FONT, GColorWhiteARGB8, { .x = 91, .y = 142 } }, // SHORT_TIME_LEFT_TEXT
   { TEXT_FONT, GColorBlackARGB8, { .x = 91, .y = 142 } }, // CHARGE_TIME_LEFT_TEXT
+#ifdef DEBUG
+  { TEXT_FONT, GColorRedARGB8, { .x = 32, .y = 124 } }, // TODO_OLD_TEXT
+  { TEXT_FONT, GColorRedARGB8, { .x = 32, .y = 83 } }, // TODO_NEW_TEXT
+#endif
 };
 
 static void init_texts() {
@@ -276,22 +292,29 @@ typedef enum {
 
 // The state of a time left predictor.
 typedef struct {
+  // The minimal reasonable hours_per_percent.
+  double minimal_hours_per_percent;
+  
+  // The maximal reasonable hours_per_percent;
+  double maximal_hours_per_percent;
+  
   // How many hours does it take to modify the state by one percent.
   double hours_per_percent;
   
   // The last time we saw an interesting measurement, or 0.
-  time_t previous_tick_time;
+  time_t previous_time;
   
   // The value of the last interesting measurement.
-  int previous_tick_percent;
+  int previous_percent;
+  
 } Predictor;
 
 // The indices of the predictors we use.
 // The keys we need to persist the fields of the predictor.
 typedef enum {
   PERSIST_HOURS_TO_PERCENT, // A double.
-  PERSIST_PREVIOUS_TICK_TIME, // A 64-bit integer.
-  PERSIST_PREVIOUS_TICK_PERCENT, // An 8-bit integer.
+  PERSIST_PREVIOUS_TIME, // A 64-bit integer.
+  PERSIST_PREVIOUS_PERCENT, // An 8-bit integer.
   PERSIST_INSTANCE_FIELDS_COUNT,
 } PredictorInstanceField;
 
@@ -302,39 +325,49 @@ typedef enum {
 } WhichPredictor;
 
 // The used predictors data.
-static Predictor predictors[PREDICTORS_COUNT];
+static Predictor predictors[PREDICTORS_COUNT] = {
+  { 0.0, 0.05 }, // CHARGE_PREDICTOR between instant and 5 hours to charge.
+  { 0.25, 4.0 }, // DISCHARGE_PREDICTOR between one day and one week to discharge.
+};
+
+#ifdef DEBUG
+int todo_old_percent;
+time_t todo_old_time;
+#endif
 
 static int predictor_instance_field_key(WhichPredictor which_predictor, PredictorInstanceField predictor_instance_field) {
   return PERSIST_GLOBAL_FIELDS_COUNT + which_predictor * PERSIST_INSTANCE_FIELDS_COUNT + predictor_instance_field;
 }
 
 static void init_predictors() {
+  battery_charge_state = battery_state_service_peek();
+  was_previous_battery_charging = battery_charge_state.is_charging;
   if (persist_exists(PERSIST_WAS_PREVIOUS_BATTERY_CHARGING)) {
     was_previous_battery_charging = persist_read_bool(PERSIST_WAS_PREVIOUS_BATTERY_CHARGING);
   }
-  time_t now = time(NULL);
   for (WhichPredictor which_predictor = 0; which_predictor < PREDICTORS_COUNT; ++which_predictor) {
     int field_key = predictor_instance_field_key(which_predictor, PERSIST_HOURS_TO_PERCENT);
     if (persist_exists(field_key)) {
       persist_read_data(field_key, &predictors[which_predictor].hours_per_percent,
                         sizeof(predictors[which_predictor].hours_per_percent));
     }
-    field_key = predictor_instance_field_key(which_predictor, PERSIST_PREVIOUS_TICK_TIME);
+    field_key = predictor_instance_field_key(which_predictor, PERSIST_PREVIOUS_TIME);
     if (persist_exists(field_key)) {
-      persist_read_data(field_key, &predictors[which_predictor].previous_tick_time,
-                        sizeof(predictors[which_predictor].previous_tick_time));
-      // One hour won't throw the algorithm off too much.
-      if (now - predictors[which_predictor].previous_tick_time > 3600) {
-        predictors[which_predictor].previous_tick_time = 0;
-      }
+      persist_read_data(field_key, &predictors[which_predictor].previous_time,
+                        sizeof(predictors[which_predictor].previous_time));
     }
-    if (predictors[which_predictor].previous_tick_time) {
-      field_key = predictor_instance_field_key(which_predictor, PERSIST_PREVIOUS_TICK_PERCENT);
+    predictors[which_predictor].previous_percent = battery_charge_state.charge_percent;
+    if (predictors[which_predictor].previous_time) {
+      field_key = predictor_instance_field_key(which_predictor, PERSIST_PREVIOUS_PERCENT);
       if (persist_exists(field_key)) {
-        predictors[which_predictor].previous_tick_percent = persist_read_int(field_key);
+        predictors[which_predictor].previous_percent = persist_read_int(field_key);
       }
     }
   }
+#ifdef DEBUG
+  todo_old_percent = predictors[DISCHARGE_PREDICTOR].previous_percent;
+  todo_old_time = predictors[DISCHARGE_PREDICTOR].previous_time;
+#endif
 }
 
 static void deinit_predictors() {
@@ -343,110 +376,133 @@ static void deinit_predictors() {
     int field_key = predictor_instance_field_key(which_predictor, PERSIST_HOURS_TO_PERCENT);
     persist_write_data(field_key, &predictors[which_predictor].hours_per_percent,
                        sizeof(predictors[which_predictor].hours_per_percent));
-    field_key = predictor_instance_field_key(which_predictor, PERSIST_PREVIOUS_TICK_TIME);
-    persist_write_data(field_key, &predictors[which_predictor].previous_tick_time,
-                       sizeof(predictors[which_predictor].previous_tick_time));
-    field_key = predictor_instance_field_key(which_predictor, PERSIST_PREVIOUS_TICK_PERCENT);
-    persist_write_int(field_key, predictors[which_predictor].previous_tick_percent);
+    field_key = predictor_instance_field_key(which_predictor, PERSIST_PREVIOUS_TIME);
+    persist_write_data(field_key, &predictors[which_predictor].previous_time,
+                       sizeof(predictors[which_predictor].previous_time));
+    field_key = predictor_instance_field_key(which_predictor, PERSIST_PREVIOUS_PERCENT);
+    persist_write_int(field_key, predictors[which_predictor].previous_percent);
   }
 }
 
-static WhichPredictor current_predictor(time_t tick_time) {
-  if (battery_charge_state.is_charging != was_previous_battery_charging) {
-    if (was_previous_battery_charging && battery_charge_state.charge_percent == 100) {
-      // Assume that if we were charging and at 100%, then we still are at 100%.
-      for (WhichPredictor which_predictor = 0; which_predictor < PREDICTORS_COUNT; ++which_predictor) {
-        predictors[which_predictor].previous_tick_time = tick_time; 
-        predictors[which_predictor].previous_tick_percent = 100; 
-      }
-    } else {
-      // Otherwise, we need to reset the time, since we don't know the sufficiently-accurate charge percent.
-      for (WhichPredictor which_predictor = 0; which_predictor < PREDICTORS_COUNT; ++which_predictor) {
-        predictors[which_predictor].previous_tick_time = 0; 
-      }
-    }
-    was_previous_battery_charging = battery_charge_state.is_charging;
+static void update_predictor(time_t current_time) {
+  int current_percent =  battery_charge_state.charge_percent;
+  // TRICKY: If we are charging and at 100%, we'll be switching to discharging soon, and we'll be
+  // at a known state, so capture the current state as the base state of the discharge predictor.
+  // The base time will be only one minute off, which is negligible.
+  if (battery_charge_state.is_charging && current_percent == 100) {
+    predictors[DISCHARGE_PREDICTOR].previous_time = current_time;
+    predictors[DISCHARGE_PREDICTOR].previous_percent = current_percent;
   }
-  return battery_charge_state.is_charging ? CHARGE_PREDICTOR : DISCHARGE_PREDICTOR;
-}
-
-static void update_predictor(WhichPredictor which_predictor, int current_tick_percent, time_t current_tick_time) {
+  WhichPredictor which_predictor = battery_charge_state.is_charging ? CHARGE_PREDICTOR : DISCHARGE_PREDICTOR;
   Predictor *predictor = &predictors[which_predictor];
-  int percents_delta = current_tick_percent - predictor->previous_tick_percent;
-  if (!percents_delta) {
+  time_t time_delta = current_time - predictor->previous_time;
+  int percents_delta = current_percent - predictor->previous_percent;
+  if (time_delta <= 0 || !percents_delta) {
     return;
   }
-  if (percents_delta < 0) {
-    percents_delta = -percents_delta;
-  }
-  if (predictor->previous_tick_time) {
-    time_t time_delta = current_tick_time - predictor->previous_tick_time;
-    double hours_delta = time_delta / 3600.0;
-    double step_hours_per_percent = hours_delta / percents_delta;
-    if (step_hours_per_percent > 0) {
-      if (predictor->hours_per_percent > 0) {
-        // TRICKY: the bigger the difference is, the faster we move towards to the new value.
-        // This speeds up adapting to a new regime.
-        double max_hours_per_percent = step_hours_per_percent > predictor->hours_per_percent
-                                     ? step_hours_per_percent : predictor->hours_per_percent;
-        double min_hours_per_percent = step_hours_per_percent < predictor->hours_per_percent
-                                     ? step_hours_per_percent : predictor->hours_per_percent;
-        double difference_hours_per_percent = max_hours_per_percent - min_hours_per_percent;
-        double step_weight = difference_hours_per_percent / max_hours_per_percent;
-        double predictor_weight = 1.0 - step_weight;
-        predictor->hours_per_percent = predictor_weight * predictor->hours_per_percent
-                                     + step_weight * step_hours_per_percent;
-      } else {
-        predictor->hours_per_percent = step_hours_per_percent;
+  if ((battery_charge_state.is_charging && percents_delta <= 0)
+   || (!battery_charge_state.is_charging && percents_delta >= 0)) {
+    // Makes no sense; ignore for purpose of updating dis/charge speed.
+  } else {
+    if (percents_delta < 0) {
+      percents_delta = -percents_delta;
+    }
+    if (predictor->previous_time) {
+      double hours_delta = time_delta / 3600.0;
+      double step_hours_per_percent = hours_delta / percents_delta;
+      // TRICKY: Ignore completely unreasonable values that result from switching between dis/charging.
+      // Simply clearing the base time when switching between modes doesn't work because it seems that
+      // we get spurious readings with wildly wrong values (0%?!?!) interspersed between the real ones.
+      if (step_hours_per_percent > predictor->minimal_hours_per_percent
+       && step_hours_per_percent < predictor->maximal_hours_per_percent) {
+        if (predictor->hours_per_percent > predictor->minimal_hours_per_percent
+         && predictor->hours_per_percent < predictor->maximal_hours_per_percent) {
+          predictor->hours_per_percent = 0.9 * predictor->hours_per_percent + 0.1 * step_hours_per_percent;
+        } else {
+          predictor->hours_per_percent = step_hours_per_percent;
+        }
       }
     }
   }
-  predictor->previous_tick_time = current_tick_time;
-  predictor->previous_tick_percent = current_tick_percent;
+#ifdef DEBUG
+  todo_old_time = predictor->previous_time;;
+  todo_old_percent = predictor->previous_percent;
+#endif
+  predictor->previous_time = current_time;
+  predictor->previous_percent = current_percent;
 }
 
-static void format_predictor(WhichPredictor which_predictor, int current_tick_time, char *text) {
+static char *format_predictor(time_t current_time) {
+  WhichPredictor which_predictor = battery_charge_state.is_charging ? CHARGE_PREDICTOR : DISCHARGE_PREDICTOR;
+  char direction = which_predictor == CHARGE_PREDICTOR ? '+' : '-';
+#ifdef DEBUG
+  static char old_text[14];
+  time_t old_time = todo_old_time > 100 ? current_time - todo_old_time : todo_old_time;
+  snprintf(old_text, sizeof(old_text), "%02d:%02d:%02d%c%d",
+           (int)((old_time % 86400) / 3600),
+           (int)((old_time % 3600) / 60),
+           (int)(old_time % 60),
+           direction,
+           todo_old_percent == 100 ? 99 : todo_old_percent);
+  set_text(TODO_OLD_TEXT, old_text);
+  static char new_text[14];
+  double charge_percent_per_hour = predictors[CHARGE_PREDICTOR].hours_per_percent
+                                 ? 1.0 / predictors[CHARGE_PREDICTOR].hours_per_percent
+                                 : 0;
+  double discharge_percent_per_hour = predictors[DISCHARGE_PREDICTOR].hours_per_percent
+                                    ? 1.0 / predictors[DISCHARGE_PREDICTOR].hours_per_percent
+                                    : 0;
+  snprintf(new_text, sizeof(new_text), "+%d.%02d-%d.%02d",
+           (int)(charge_percent_per_hour),
+           (int)((charge_percent_per_hour - (int)(charge_percent_per_hour)) * 100),
+           (int)(discharge_percent_per_hour),
+           (int)((discharge_percent_per_hour - (int)(discharge_percent_per_hour)) * 100));
+  set_text(TODO_NEW_TEXT, new_text);
+#endif
+  static char predictor_text[] = "0+00";
   const Predictor *predictor = &predictors[which_predictor];
-  if (!predictor->previous_tick_time) {
-      snprintf(text, 5, " ?? ");
-      return;
+  char no_time = ' ';
+  if (!predictor->previous_time) {
+      no_time = '?';
   }
+  char no_hours_per_percent = ' ';
   if (!predictor->hours_per_percent) {
-      snprintf(text, 5, " !! ");
-      return;
+      no_hours_per_percent = '!';
+  }
+  if (no_time != ' ' || no_hours_per_percent != ' ') {
+    snprintf(predictor_text, sizeof(predictor_text), " %c%c ", no_time, no_hours_per_percent);
+    return predictor_text;
   }
   int target_percent = which_predictor == DISCHARGE_PREDICTOR ? 0 : 100;
-  int difference_percent = target_percent - predictor->previous_tick_percent;
+  int difference_percent = target_percent - predictor->previous_percent;
   if (difference_percent < 0) {
     difference_percent = -difference_percent;
   }
   if (!difference_percent) {
-      snprintf(text, 5, " 00 ");
-      return;
+      snprintf(predictor_text, sizeof(predictor_text), " 00 ");
+      return predictor_text;
   }
-  int time_since_previous_tick = current_tick_time - predictor->previous_tick_time;
-  double hours_since_previous_tick = time_since_previous_tick / 3600.0;
-  double difference_hours = difference_percent * predictor->hours_per_percent - hours_since_previous_tick;
-  if (difference_hours >= 1.0) {
-    int difference_days = (int)(difference_hours / 24.0);
-    int rounded_difference_hours = (int)(difference_hours - difference_days * 24.0 + 0.5);
-    snprintf(text, 5, "%1d+%02d", difference_days, rounded_difference_hours);
-    return;
+  double hours_since_previous_time = (current_time - predictor->previous_time) / 3600.0;
+  double exact_difference_hours = difference_percent * predictor->hours_per_percent - hours_since_previous_time;
+  if (exact_difference_hours >= 1.0) {
+    int floor_difference_days = (int)(exact_difference_hours / 24.0);
+    int rounded_difference_hours = (int)(exact_difference_hours - floor_difference_days * 24.0 + 0.5);
+    snprintf(predictor_text, sizeof(predictor_text), "%1d+%02d", floor_difference_days, rounded_difference_hours);
+  } else if (exact_difference_hours >= 0) {
+    int rounded_difference_minutes = (int)(exact_difference_hours * 60.0 + 0.5);
+    snprintf(predictor_text, sizeof(predictor_text), "0:%02d", rounded_difference_minutes);
+  } else {
+    snprintf(predictor_text, sizeof(predictor_text), " ?? ");
   }
-  int rounded_difference_minutes = (int)(difference_hours * 60.0 + 0.5);
-  if (rounded_difference_minutes > 0) {
-    snprintf(text, 5, "0:%02d", rounded_difference_minutes);
-    return;
-  }
+  return predictor_text;
 }
 
 //// Text updates.
 
 static void update_time_left(time_t tick_time) {
-  static char time_left_text[] = "0+00";
-  WhichPredictor which_predictor = current_predictor(tick_time);
-  update_predictor(which_predictor, battery_charge_state.charge_percent, tick_time);
-  format_predictor(which_predictor, tick_time, time_left_text);
+  update_predictor(tick_time);
+  char *time_left_text = format_predictor(tick_time);
+  // APP_LOG(APP_LOG_LEVEL_DEBUG, ">>%s<<", time_left_text);
   if (battery_charge_state.is_charging) {
     set_text(LONG_TIME_LEFT_TEXT, "");
     set_text(SHORT_TIME_LEFT_TEXT, "");
@@ -507,8 +563,7 @@ static void update_time(struct tm* tick_time, TimeUnits units_changed) {
   }
   
   static char time_text[6];
-  static const char *time_format = "%H:%M";
-  strftime(time_text, sizeof(time_text), time_format, tick_time);
+  strftime(time_text, sizeof(time_text), "%H:%M", tick_time);
   set_text(TIME_TEXT, time_text);
   
   update_time_left(mktime(tick_time));
@@ -560,11 +615,7 @@ static void init_subscriptions() {
 // Prevent blank data until the 1st event arrives, which could be long.
 // Ideally, subscribe should have immediately invoked the callback...
 static void trigger_updates_before_subscriptions() {
-  time_t now = time(NULL);
-  struct tm* tick_time;
-  tick_time = localtime(&now);
-  update_time(tick_time, DAY_UNIT);
-  battery_update(battery_state_service_peek());
+  update_time(localtime(&init_time), DAY_UNIT);
   update_bluetooth_status(bluetooth_connection_service_peek());
 }
 
