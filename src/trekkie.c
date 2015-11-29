@@ -331,9 +331,11 @@ static Predictor predictors[PREDICTORS_COUNT] = {
 };
 
 #ifdef DEBUG
-int todo_old_percent;
-time_t todo_old_time;
+static int todo_old_percent;
+static time_t todo_old_time;
 #endif
+
+static time_t prediction_update_frequency;
 
 static int predictor_instance_field_key(WhichPredictor which_predictor, PredictorInstanceField predictor_instance_field) {
   return PERSIST_GLOBAL_FIELDS_COUNT + which_predictor * PERSIST_INSTANCE_FIELDS_COUNT + predictor_instance_field;
@@ -482,11 +484,22 @@ static char *format_predictor(time_t current_time) {
       snprintf(predictor_text, sizeof(predictor_text), " 00 ");
       return predictor_text;
   }
-  double hours_since_previous_time = (current_time - predictor->previous_time) / 3600.0;
+  time_t time_since_previous_time = current_time - predictor->previous_time;
+  // TRICKY: Since we'll be showing only hours, no need to update more than once in 20 minutes.
+  if (time_since_previous_time > 3600 + 1200) {
+    prediction_update_frequency = 1200;
+  } else {
+    prediction_update_frequency = 0;
+  }
+  double hours_since_previous_time = time_since_previous_time / 3600.0;
   double exact_difference_hours = difference_percent * predictor->hours_per_percent - hours_since_previous_time;
   if (exact_difference_hours >= 1.0) {
     int floor_difference_days = (int)(exact_difference_hours / 24.0);
     int rounded_difference_hours = (int)(exact_difference_hours - floor_difference_days * 24.0 + 0.5);
+    if (rounded_difference_hours >= 24) {
+      rounded_difference_hours -= 24;
+      floor_difference_days += 1;
+    }
     snprintf(predictor_text, sizeof(predictor_text), "%1d+%02d", floor_difference_days, rounded_difference_hours);
   } else if (exact_difference_hours >= 0) {
     int rounded_difference_minutes = (int)(exact_difference_hours * 60.0 + 0.5);
@@ -501,7 +514,11 @@ static char *format_predictor(time_t current_time) {
 
 static void update_time_left(time_t tick_time) {
   update_predictor(tick_time);
-  char *time_left_text = format_predictor(tick_time);
+  static time_t last_format_time;
+  if (tick_time - last_format_time < prediction_update_frequency) {
+    return;
+  }
+  char *time_left_text = format_predictor(last_format_time = tick_time);
   // APP_LOG(APP_LOG_LEVEL_DEBUG, ">>%s<<", time_left_text);
   if (battery_charge_state.is_charging) {
     set_text(LONG_TIME_LEFT_TEXT, "");
