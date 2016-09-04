@@ -436,8 +436,8 @@ static void update_predictor(time_t current_time) {
 
 static char *format_predictor(time_t current_time) {
   WhichPredictor which_predictor = battery_charge_state.is_charging ? CHARGE_PREDICTOR : DISCHARGE_PREDICTOR;
-  char direction = which_predictor == CHARGE_PREDICTOR ? '+' : '-';
 #ifdef DEBUG
+  char direction = which_predictor == CHARGE_PREDICTOR ? '+' : '-';
   static char old_text[14];
   time_t old_time = todo_old_time > 100 ? current_time - todo_old_time : todo_old_time;
   snprintf(old_text, sizeof(old_text), "%02d:%02d:%02d%c%d",
@@ -592,6 +592,7 @@ static void update_compass(CompassHeadingData heading_data) {
   char *current_heading_text = NULL;
   bool is_two_letter = false;
   switch (heading_data.compass_status) {
+    case CompassStatusUnavailable:
     case CompassStatusDataInvalid:
       current_heading_text = "!";
       break;

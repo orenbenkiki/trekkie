@@ -1,0 +1,59 @@
+{
+    "author": "Oren Ben-Kiki",
+    "dependencies": {},
+    "keywords": [],
+    "name": "oren-s-trek",
+    "pebble": {
+        "displayName": "Oren's Trek",
+        "enableMultiJS": false,
+        "messageKeys": [],
+        "projectType": "native",
+        "resources": {
+            "media": [
+                {
+                    "file": "images/bluetooth.png",
+                    "name": "BLUETOOTH_IMAGE",
+                    "type": "bitmap"
+                },
+                {
+                    "file": "images/background.png",
+                    "name": "IMAGE_BACKGROUND",
+                    "type": "bitmap"
+                },
+                {
+                    "file": "images/icon.png",
+                    "menuIcon": true,
+                    "name": "IMAGE_MENU_ICON",
+                    "type": "bitmap"
+                },
+                {
+                    "characterRegex": "[0-9.]",
+                    "file": "fonts/LCARS.ttf",
+                    "name": "FONT_LCARS_36",
+                    "type": "font"
+                },
+                {
+                    "characterRegex": "[0-9:]",
+                    "file": "fonts/LCARS.ttf",
+                    "name": "FONT_LCARS_60",
+                    "type": "font"
+                },
+                {
+                    "characterRegex": "[-A-Z0-9 !?+:.]",
+                    "file": "fonts/LucidaTypewriterBold.ttf",
+                    "name": "FONT_LUCIDA_17",
+                    "type": "font"
+                }
+            ]
+        },
+        "sdkVersion": "3",
+        "targetPlatforms": [
+            "basalt"
+        ],
+        "uuid": "66f2ec23-f1e9-4df7-b309-274422df25dc",
+        "watchapp": {
+            "watchface": true
+        }
+    },
+    "version": "5.0.0"
+}
