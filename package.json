@@ -11,6 +11,12 @@
         "resources": {
             "media": [
                 {
+                    "file": "images/icon.png",
+                    "name": "IMAGE_MENU_ICON",
+                    "targetPlatforms": null,
+                    "type": "bitmap"
+                },
+                {
                     "file": "images/bluetooth.png",
                     "name": "BLUETOOTH_IMAGE",
                     "type": "bitmap"
@@ -18,12 +24,6 @@
                 {
                     "file": "images/background.png",
                     "name": "IMAGE_BACKGROUND",
-                    "type": "bitmap"
-                },
-                {
-                    "file": "images/icon.png",
-                    "menuIcon": true,
-                    "name": "IMAGE_MENU_ICON",
                     "type": "bitmap"
                 },
                 {
